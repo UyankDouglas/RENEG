@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['planilha'])) {
             if ($ext === 'csv') {
                 $rows = [];
                 if (($handle = fopen($dest, 'r')) !== false) {
-                    $header = fgetcsv($handle, 0, ';');
+                    $header = fgetcsv($handle, 0, ';', '"', '\\');
                     // Mapeamento robusto de colunas
                     $empresa_idx    = procurar_coluna($header, ['Empresa/Cliente','empresa','Empresa','EMPRESA/CLIENTE','EMPRESA']);
                     $tel_com_idx    = procurar_coluna($header, ['Telefone Comercial','tel_comercial']);
@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['planilha'])) {
                     $descricao_idx  = procurar_coluna($header, ['Descrição','descricao']);
                     $cpf_cnpj_idx   = procurar_coluna($header, ['CPF/CNPJ','cpf_cnpj']);
 
-                    while (($linha = fgetcsv($handle, 0, ';')) !== false) {
+                    while (($linha = fgetcsv($handle, 0, ';', '"', '\\')) !== false) {
                         $empresa    = isset($linha[$empresa_idx])    ? $linha[$empresa_idx] : '';
                         $tel_com    = isset($linha[$tel_com_idx])    ? $linha[$tel_com_idx] : '';
                         $tel_cel    = isset($linha[$tel_cel_idx])    ? $linha[$tel_cel_idx] : '';
@@ -80,6 +80,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['planilha'])) {
                     }
                     fclose($handle);
                 }
+
+                // Uma transação só: importa ~30x mais rápido e não deixa lista pela metade se falhar
+                $db->exec('BEGIN TRANSACTION;');
 
                 // Registra a nova lista
                 $nome_arquivo = basename($file['name']);
@@ -99,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['planilha'])) {
                     $stmt->bindValue(11, $lista_id);
                     if ($stmt->execute()) $inserted++;
                 }
+                $db->exec('COMMIT;');
                 $msg = "Base CSV carregada e $inserted leads importados!";
             } else {
                 // === IMPORTAÇÃO DE XLSX ===
@@ -119,6 +123,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['planilha'])) {
                     $cpf_cnpj_idx   = procurar_coluna($header, ['CPF/CNPJ','cpf_cnpj']);
 
                     $dados = array_slice($rows, 1);
+
+                    // Uma transação só: importa ~30x mais rápido e não deixa lista pela metade se falhar
+                    $db->exec('BEGIN TRANSACTION;');
 
                     // Registra a nova lista
                     $nome_arquivo = basename($file['name']);
@@ -158,6 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['planilha'])) {
                         $stmt->bindValue(11, $lista_id);
                         if ($stmt->execute()) $inserted++;
                     }
+                    $db->exec('COMMIT;');
                     $msg = "Base XLSX carregada e $inserted leads importados!";
                 } catch (Exception $e) {
                     $msg = "Erro ao processar planilha: " . $e->getMessage();

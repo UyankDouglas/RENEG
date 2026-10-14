@@ -1,5 +1,11 @@
 <?php
+session_start();
 require_once __DIR__ . '/../config/database.php';
+
+if (!isset($_SESSION['usuario_id']) || !in_array($_SESSION['usuario_nivel'], ['ADM', 'Supervisor'])) {
+    header('Location: login.php');
+    exit;
+}
 set_time_limit(300);
 
 header('Content-Type: text/csv; charset=UTF-8');
@@ -24,7 +30,7 @@ fputcsv($fp, [
     'Telefone da Ligação',
     'SFA',                  // <<< NOVO
     'Status'
-]);
+], ',', '"', '\\');
 
 $res = $db->query("
     SELECT 
@@ -52,7 +58,7 @@ while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
         $row['telefone_ligacao'] ?? '',
         $row['sfa'] ?? '',                 // <<< NOVO: valor SFA
         $row['status'] ?? ''
-    ]);
+    ], ',', '"', '\\');
 }
 
 fclose($fp);

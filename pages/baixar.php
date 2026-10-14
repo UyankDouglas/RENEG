@@ -1,5 +1,11 @@
 <?php
+session_start();
 require_once __DIR__ . '/../config/database.php';
+
+if (!isset($_SESSION['usuario_id']) || !in_array($_SESSION['usuario_nivel'], ['ADM', 'Supervisor'])) {
+    header('Location: login.php');
+    exit;
+}
 require_once __DIR__ . '/../vendor/autoload.php';
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
