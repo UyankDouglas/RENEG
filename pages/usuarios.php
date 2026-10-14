@@ -202,6 +202,8 @@ while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
         .tabela-responsive { overflow-x:auto; }
         .table-destaque th, .table-destaque td { vertical-align: middle; }
         .hint { font-size:12px; color:#666; }
+        .link-equipes { font-size:13px; font-weight:600; color:#6f5dff; text-decoration:none; }
+        .link-equipes:hover { text-decoration:underline; }
     </style>
 </head>
 <body>
@@ -231,6 +233,7 @@ while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
                 <option value="<?=htmlspecialchars($eq)?>"><?=htmlspecialchars($eq)?></option>
             <?php endforeach; ?>
         </select>
+        <a href="configuracoes.php#equipes" class="link-equipes">Gerenciar equipes</a>
         <input type="password" name="senha" placeholder="Senha" required>
         <button type="submit" class="btn-mini">Cadastrar</button>
         <span class="hint">Para ADM, a equipe será ignorada.</span>
