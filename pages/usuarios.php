@@ -15,6 +15,7 @@ $_SESSION['last_activity'] = time();
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/opcoes.php';
+require_once __DIR__ . '/../config/cpf.php';
 
 // Somente ADM pode acessar
 $nivelSess = strtoupper(trim($_SESSION['usuario_nivel'] ?? ''));
@@ -36,7 +37,7 @@ $equipes = listar_equipes($db);
  */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'cadastrar') {
     $nome  = trim($_POST['nome'] ?? '');
-    $email = trim($_POST['email'] ?? '');
+    $cpf   = cpf_normalizar($_POST['cpf'] ?? '');
     $nivel = trim($_POST['nivel'] ?? '');
     $senha = trim($_POST['senha'] ?? '');
 
@@ -44,8 +45,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'cadastr
     $validNiveis = ['ADM', 'Supervisor', 'Consultor'];
     if (!in_array($nivel, $validNiveis, true)) {
         $msg = "Nível inválido.";
-    } elseif ($nome === '' || $email === '' || $senha === '') {
+    } elseif ($nome === '' || $cpf === '' || $senha === '') {
         $msg = "Preencha todos os campos obrigatórios.";
+    } elseif (!cpf_valido($cpf)) {
+        $msg = "CPF inválido. Confira os números digitados.";
+    } elseif (cpf_em_uso($db, $cpf)) {
+        $msg = "Já existe um usuário com o CPF " . cpf_formatar($cpf) . ".";
     } else {
         // Equipe obrigatória exceto para ADM
         $equipe = ($nivel === 'ADM') ? null : trim($_POST['equipe'] ?? '');
@@ -53,9 +58,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'cadastr
             $msg = "Equipe obrigatória para Supervisor e Consultor!";
         } else {
             $senha_hash = password_hash($senha, PASSWORD_DEFAULT);
-            $stmt = $db->prepare('INSERT INTO usuarios (nome, email, senha_hash, nivel, equipe) VALUES (:n, :e, :s, :nv, :eq)');
+            $stmt = $db->prepare('INSERT INTO usuarios (nome, cpf, senha_hash, nivel, equipe) VALUES (:n, :c, :s, :nv, :eq)');
             $stmt->bindValue(':n',  $nome, SQLITE3_TEXT);
-            $stmt->bindValue(':e',  $email, SQLITE3_TEXT);
+            $stmt->bindValue(':c',  $cpf, SQLITE3_TEXT);
             $stmt->bindValue(':s',  $senha_hash, SQLITE3_TEXT);
             $stmt->bindValue(':nv', $nivel, SQLITE3_TEXT);
             if ($equipe === null) {
@@ -67,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'cadastr
             if ($stmt->execute()) {
                 $msg = "Usuário cadastrado!";
             } else {
-                $msg = "Erro ao cadastrar usuário! Verifique se o e-mail já existe.";
+                $msg = "Erro ao cadastrar usuário!";
             }
         }
     }
@@ -94,6 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'editar'
     $novo_nivel   = trim($_POST['nivel'] ?? '');
     $nova_equipe  = trim($_POST['equipe'] ?? '');
     $nova_senha   = trim($_POST['nova_senha'] ?? '');
+    $novo_cpf_txt = trim($_POST['cpf'] ?? '');
 
     $validNiveis  = ['ADM', 'Supervisor', 'Consultor'];
     if (!in_array($novo_nivel, $validNiveis, true)) {
@@ -128,6 +134,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'editar'
                 }
             }
 
+            // CPF: vazio mantém o atual; preenchido precisa ser válido e não pertencer a outro usuário
+            $novo_cpf = null;
+            if ($msg === '' && $novo_cpf_txt !== '') {
+                if (!cpf_valido($novo_cpf_txt)) {
+                    $msg = "CPF inválido. Confira os números digitados.";
+                } elseif (cpf_em_uso($db, $novo_cpf_txt, $uid)) {
+                    $msg = "Já existe outro usuário com o CPF " . cpf_formatar($novo_cpf_txt) . ".";
+                } else {
+                    $novo_cpf = cpf_normalizar($novo_cpf_txt);
+                }
+            }
+
             if ($msg === '') {
                 // Monta UPDATE conforme senha em branco ou não
                 if ($nova_senha !== '') {
@@ -136,6 +154,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'editar'
                         UPDATE usuarios
                            SET nivel = :nv,
                                equipe = :eq,
+                               cpf = COALESCE(:cpf, cpf),
                                senha_hash = :sh
                          WHERE id = :id
                     ");
@@ -144,11 +163,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'editar'
                     $stmt = $db->prepare("
                         UPDATE usuarios
                            SET nivel = :nv,
-                               equipe = :eq
+                               equipe = :eq,
+                               cpf = COALESCE(:cpf, cpf)
                          WHERE id = :id
                     ");
                 }
 
+                $stmt->bindValue(':cpf', $novo_cpf, $novo_cpf === null ? SQLITE3_NULL : SQLITE3_TEXT);
                 $stmt->bindValue(':nv', $novo_nivel, SQLITE3_TEXT);
                 if ($equipeFinal === null) {
                     $stmt->bindValue(':eq', null, SQLITE3_NULL);
@@ -173,7 +194,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'editar'
 }
 
 // Lista todos os usuários para exibição
-$res = $db->query("SELECT id, nome, email, nivel, equipe FROM usuarios ORDER BY nome ASC");
+$res = $db->query("SELECT id, nome, cpf, email, nivel, equipe FROM usuarios ORDER BY nome ASC");
 $usuarios = [];
 while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
     $usuarios[] = $row;
@@ -221,7 +242,7 @@ while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
     <form method="POST" id="form-cadastro" class="row-form">
         <input type="hidden" name="acao" value="cadastrar">
         <input type="text" name="nome" placeholder="Nome" required>
-        <input type="email" name="email" placeholder="Email" required>
+        <input type="text" name="cpf" class="cpf-input" placeholder="CPF" inputmode="numeric" maxlength="14" required>
         <select name="nivel" id="nivel-novo" required>
             <option value="ADM">Administrador</option>
             <option value="Supervisor">Supervisor</option>
@@ -264,7 +285,7 @@ while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
         <table class="table-destaque">
             <tr>
                 <th>Nome</th>
-                <th>Email</th>
+                <th>CPF</th>
                 <th>Nível</th>
                 <th>Equipe</th>
                 <th>Nova senha</th>
@@ -279,7 +300,13 @@ while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
                     <input type="hidden" name="acao" value="editar">
                     <input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
                     <td><?= htmlspecialchars($u['nome']) ?></td>
-                    <td><?= htmlspecialchars($u['email']) ?></td>
+                    <td>
+                        <input type="text" name="cpf" class="cpf-input" value="<?= htmlspecialchars(cpf_formatar($u['cpf'] ?? '')) ?>"
+                               placeholder="000.000.000-00" inputmode="numeric" maxlength="14">
+                        <?php if (empty($u['cpf'])): ?>
+                            <div class="hint" style="color:#ad6800;">Sem CPF: entra pelo e-mail <?= htmlspecialchars($u['email'] ?? '') ?></div>
+                        <?php endif; ?>
+                    </td>
                     <td>
                         <select name="nivel" class="nivel-select" data-id="<?= (int)$u['id'] ?>">
                             <option value="ADM"        <?= $u['nivel']==='ADM'        ? 'selected' : '' ?>>Administrador</option>
@@ -341,6 +368,14 @@ while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
         syncRow(sel.dataset.id);
     });
 })();
+
+// Máscara de CPF: 000.000.000-00
+document.querySelectorAll('.cpf-input').forEach(el => {
+    el.addEventListener('input', () => {
+        const d = el.value.replace(/\D/g, '').slice(0, 11);
+        el.value = d.replace(/^(\d{3})(\d)/, '$1.$2').replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1-$2');
+    });
+});
 </script>
 </body>
 </html>

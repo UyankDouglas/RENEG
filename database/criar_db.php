@@ -8,11 +8,12 @@ if (PHP_SAPI !== 'cli') {
 
 $db = new SQLite3(__DIR__ . '/database.db');
 
-// Tabela de usuários
+// Tabela de usuários (login pelo CPF, só dígitos; e-mail só para quem foi cadastrado antes do CPF)
 $db->exec('CREATE TABLE IF NOT EXISTS usuarios (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nome TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL,
+    cpf TEXT UNIQUE,
+    email TEXT UNIQUE,
     senha_hash TEXT NOT NULL,
     nivel TEXT NOT NULL,
     equipe TEXT
