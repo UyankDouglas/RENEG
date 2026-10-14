@@ -1,0 +1,12 @@
+# Dependências (reinstalar com: composer install)
+/vendor/
+
+# Banco de dados SQLite (contém dados pessoais de clientes e usuários)
+/database/*.db
+/database/*.db-journal
+/database/*.db-wal
+/database/*.db-shm
+
+# Planilhas enviadas (contêm dados pessoais de clientes)
+/uploads/base/*
+!/uploads/base/.gitkeep
