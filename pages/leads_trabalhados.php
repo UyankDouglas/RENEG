@@ -15,6 +15,7 @@ $_SESSION['last_activity'] = time();
 
 date_default_timezone_set('America/Recife');
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/opcoes.php';
 
 if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_nivel'] != 'Consultor') {
     header('Location: login.php');
@@ -24,27 +25,8 @@ include 'menu.php';
 
 $consultor_id = (int)$_SESSION['usuario_id'];
 
-// Status disponíveis
-$status_options = [
-    "ACHOU CARO",
-    "CLIENTE JÁ ESTÁ SENDO ATENDIDO POR OUTRO CONSULTOR/CANAL",
-    "CLIENTE NAO QUIS OUVIR A OFERTA",
-    "CLIENTE PEDIU RETORNO",
-    "CLIENTE PREFERE A CONCORRENCIA",
-    "VENDA",
-    "CLIENTES COM ORDEM EM ANDAMENTO NO SMART",
-    "CLIENTE FIDELIZADO RECENTEMENTE",
-    "CPF/CNPJ SUSPENSO/INATIVO",
-    "DECISOR NÃO LOCALIZADO",
-    "INADIMPLENTE",
-    "INSATISFEITO/ NÃO QUER CONTATO COM A TELEFONICA|VIVO",
-    "INVIABILIDADE TÉCNICA",
-    "NÃO ACEITA FIDELIDADE 24 MESES",
-    "NÃO ATENDE",
-    "NÃO É MAIS CLIENTE VIVO/DESCONECTADO",
-    "NÃO QUIS CONFIRMAR DOCUMENTOS/NÃO FORNECE INFORMAÇÕES POR TELEFONE",
-    "CLIENTES SEM RECOMENDAÇÃO"
-];
+// Status disponíveis (editáveis em Configurações)
+$status_options = listar_status($db);
 
 // ---- failsafe: garante colunas necessárias ----
 (function($db){

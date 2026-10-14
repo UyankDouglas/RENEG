@@ -11,6 +11,7 @@ if (isset($_SESSION['last_activity'])) {
 $_SESSION['last_activity'] = time();
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/opcoes.php';
 
 if (!isset($_SESSION['usuario_id'])) {
     header('Location: login.php'); exit;
@@ -20,33 +21,15 @@ include 'menu.php';
 $usuario_id   = (int)$_SESSION['usuario_id'];
 $usuario_nivel= $_SESSION['usuario_nivel'] ?? '';
 
-// —— Opções de Status (as mesmas já usadas no sistema) ——
-$status_options = [
-    "ACHOU CARO",
-    "CLIENTE JÁ ESTÁ SENDO ATENDIDO POR OUTRO CONSULTOR/CANAL",
-    "CLIENTE NAO QUIS OUVIR A OFERTA",
-    "CLIENTE PEDIU RETORNO",
-    "CLIENTE PREFERE A CONCORRENCIA",
-    "VENDA",
-    "CLIENTES COM ORDEM EM ANDAMENTO NO SMART",
-    "CLIENTE FIDELIZADO RECENTEMENTE",
-    "CPF/CNPJ SUSPENSO/INATIVO",
-    "DECISOR NÃO LOCALIZADO",
-    "INADIMPLENTE",
-    "INSATISFEITO/ NÃO QUER CONTATO COM A TELEFONICA|VIVO",
-    "INVIABILIDADE TÉCNICA",
-    "NÃO ACEITA FIDELIDADE 24 MESES",
-    "NÃO ATENDE",
-    "NÃO É MAIS CLIENTE VIVO/DESCONECTADO",
-    "NÃO QUIS CONFIRMAR DOCUMENTOS/NÃO FORNECE INFORMAÇÕES POR TELEFONE",
-    "CLIENTES SEM RECOMENDAÇÃO"
-];
+// —— Opções de Status (editáveis em Configurações) ——
+$status_options = listar_status($db);
 
 // —— Filtro de Status via GET ——
-$status_sel = trim($_GET['status'] ?? 'VENDA'); // padrão "VENDA"
+$status_padrao = in_array('VENDA', $status_options, true) ? 'VENDA' : 'Todos'; // padrão "VENDA"
+$status_sel = trim($_GET['status'] ?? $status_padrao);
 $validos = array_merge(['Todos'], $status_options);
 if (!in_array($status_sel, $validos, true)) {
-    $status_sel = 'VENDA';
+    $status_sel = $status_padrao;
 }
 $titulo_status = ($status_sel === 'Todos') ? 'TODOS' : $status_sel;
 $esc_status = SQLite3::escapeString($status_sel);

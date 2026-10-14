@@ -14,6 +14,7 @@ if (isset($_SESSION['last_activity'])) {
 $_SESSION['last_activity'] = time();
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/opcoes.php';
 
 // Somente ADM pode acessar
 $nivelSess = strtoupper(trim($_SESSION['usuario_nivel'] ?? ''));
@@ -27,8 +28,8 @@ include 'menu.php';
 $msg = '';
 $minha_id = (int)($_SESSION['usuario_id'] ?? 0);
 
-// Opções de equipe (ajuste livremente)
-$equipes = ['Tallyta', 'Marcela'];
+// Opções de equipe (editáveis em Configurações)
+$equipes = listar_equipes($db);
 
 /**
  * CADASTRAR NOVO USUÁRIO

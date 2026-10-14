@@ -24,6 +24,7 @@ $nome = $_SESSION['usuario_nome'] ?? '';
             <a href="redistribuir_status.php">Redistribuir por Status</a>
             <a href="acompanhamento.php">Acompanhamento</a>
             <a href="usuarios.php">Usuários</a>
+            <a href="configuracoes.php">Configurações</a>
         <?php elseif ($nivel === 'Supervisor'): ?>
             <a href="dashboard.php">Dashboard</a>
             <a href="upload_base.php">Upload Base</a>

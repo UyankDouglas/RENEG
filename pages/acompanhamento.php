@@ -21,12 +21,13 @@ if (!isset($_SESSION['usuario_id']) || !in_array($_SESSION['usuario_nivel'], ['A
 include 'menu.php';
 
 $usuario_nivel = $_SESSION['usuario_nivel'];
-$usuario_equipe = $_SESSION['usuario_equipe'] ?? null;
+// Equipe lida do banco (não da sessão), para refletir na hora uma equipe renomeada em Configurações
+$usuario_equipe = (string)$db->querySingle("SELECT equipe FROM usuarios WHERE id = " . (int)$_SESSION['usuario_id']);
 
 if ($usuario_nivel == 'ADM') {
     $sql = "SELECT id, nome FROM usuarios WHERE nivel = 'Consultor'";
 } elseif ($usuario_nivel == 'Supervisor') {
-    $sql = "SELECT id, nome FROM usuarios WHERE nivel = 'Consultor' AND equipe = '".$db->escapeString($usuario_equipe)."'";
+    $sql = "SELECT id, nome FROM usuarios WHERE nivel = 'Consultor' AND UPPER(equipe) = UPPER('".$db->escapeString($usuario_equipe)."')";
 }
 $consultores = [];
 $res = $db->query($sql);

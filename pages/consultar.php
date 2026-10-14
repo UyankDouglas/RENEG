@@ -12,6 +12,7 @@ if (isset($_SESSION['last_activity'])) {
 $_SESSION['last_activity'] = time();
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/opcoes.php';
 
 // Somente Consultor
 if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_nivel'] != 'Consultor') {
@@ -32,16 +33,8 @@ $ultimo_atualizado = null;
     foreach ($cols as $c) if (empty($info[$c])) $db->exec("ALTER TABLE leads ADD COLUMN $c TEXT");
 })($db);
 
-// Lista canônica de status (para validar no back-end)
-$status_options = [
-    "ACHOU CARO","CLIENTE JÁ ESTÁ SENDO ATENDIDO POR OUTRO CONSULTOR/CANAL",
-    "CLIENTE NAO QUIS OUVIR A OFERTA","CLIENTE PEDIU RETORNO","CLIENTE PREFERE A CONCORRENCIA",
-    "VENDA","CLIENTES COM ORDEM EM ANDAMENTO NO SMART","CLIENTE FIDELIZADO RECENTEMENTE",
-    "CPF/CNPJ SUSPENSO/INATIVO","DECISOR NÃO LOCALIZADO","INADIMPLENTE",
-    "INSATISFEITO/ NÃO QUER CONTATO COM A TELEFONICA|VIVO","INVIABILIDADE TÉCNICA",
-    "NÃO ACEITA FIDELIDADE 24 MESES","NÃO ATENDE","NÃO É MAIS CLIENTE VIVO/DESCONECTADO",
-    "NÃO QUIS CONFIRMAR DOCUMENTOS/NÃO FORNECE INFORMAÇÕES POR TELEFONE","CLIENTES SEM RECOMENDAÇÃO"
-];
+// Lista canônica de status (para validar no back-end; editável em Configurações)
+$status_options = listar_status($db);
 
 // salvar (TODOS os campos do formulário obrigatórios)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['lead_id'])) {
