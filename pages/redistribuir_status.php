@@ -72,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$bloqueado && isset($_POST['status
     <?php else: ?>
         <form method="POST">
             <label for="status_redistribuir"><b>Selecione os status para redistribuição:</b></label><br>
-            <select name="status_redistribuir[]" id="status_redistribuir" multiple size="6" required style="width: 350px; font-size: 15px;">
+            <select name="status_redistribuir[]" id="status_redistribuir" multiple size="6" required style="width: 100%; max-width: 780px; font-size: 15px;">
                 <?php foreach ($status_options as $status): ?>
                     <option value="<?=htmlspecialchars($status)?>"><?=htmlspecialchars($status)?></option>
                 <?php endforeach; ?>
