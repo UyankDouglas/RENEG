@@ -39,7 +39,8 @@ $db->exec('CREATE TABLE IF NOT EXISTS leads (
     lista_id INTEGER,
     observacao TEXT,
     telefone_ligacao TEXT,
-    sfa TEXT
+    sfa TEXT,
+    qtd_linhas TEXT
 )');
 
 // Tabela de tabulações (retorno dos consultores)

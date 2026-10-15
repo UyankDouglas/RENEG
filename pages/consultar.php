@@ -24,9 +24,9 @@ $consultor_id = (int)$_SESSION['usuario_id'];
 $msg = "";
 $ultimo_atualizado = null;
 
-// garante colunas necessárias (SFA e Observação)
+// garante colunas necessárias (Observação e Linhas)
 (function($db){
-    $cols = ['sfa','observacao'];
+    $cols = ['observacao','qtd_linhas'];
     $info = [];
     $res = $db->query("PRAGMA table_info(leads)");
     while ($row = $res->fetchArray(SQLITE3_ASSOC)) $info[strtolower($row['name'])] = true;
@@ -58,12 +58,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['lead_id'])) {
         $erros[] = "Observação deve ter no máximo 255 caracteres.";
     }
 
-    // SFA (obrigatório: Sim/Não)
-    $sfa = trim($_POST['sfa'] ?? '');
-    if (!in_array($sfa, ['Sim','Não'], true)) {
-        $erros[] = "Selecione SFA (Sim ou Não).";
-    }
-
     // Status (obrigatório e válido)
     $status = trim($_POST['status'] ?? '');
     if ($status === '' || !in_array($status, $status_options, true)) {
@@ -76,14 +70,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['lead_id'])) {
                SET status = :st, 
                    telefone_ligacao = :tel, 
                    data_retorno = :dt,
-                   sfa = :sfa,
                    observacao = :obs
              WHERE id = :id AND consultor_id = :cid
         ");
         $stmt->bindValue(':st',  $status, SQLITE3_TEXT);
         $stmt->bindValue(':tel', $telefone_ligacao, SQLITE3_TEXT);
         $stmt->bindValue(':dt',  date('Y-m-d H:i:s'), SQLITE3_TEXT);
-        $stmt->bindValue(':sfa', $sfa, SQLITE3_TEXT);
         $stmt->bindValue(':obs', $observacao, SQLITE3_TEXT);
         $stmt->bindValue(':id',  $lead_id, SQLITE3_INTEGER);
         $stmt->bindValue(':cid', $consultor_id, SQLITE3_INTEGER);
@@ -117,21 +109,19 @@ while ($row = $res->fetchArray(SQLITE3_ASSOC)) $leads[] = $row;
         .table-destaque th, .table-destaque td { padding: 8px 10px; vertical-align: middle; }
         .table-destaque td, .table-destaque th { word-break: normal !important; overflow-wrap: normal !important; hyphens: manual; }
 
-        .col-empresa { min-width: 260px; }
-        .col-cpf     { min-width: 140px; text-align: center; white-space: nowrap; }
-        .col-email   { min-width: 220px; }
-        .col-estado  { width: 52px; text-align: center; white-space: nowrap; padding-left:4px; padding-right:4px; }
-        .col-tel     { min-width: 150px; }
-        .col-obs     { min-width: 180px; }
-        .col-sfa     { width: 1%; white-space: nowrap; text-align: center; padding-left:4px; padding-right:4px; }
-        .col-status  { min-width: 180px; max-width: 220px; }
-        .col-acao    { width: 100px; text-align: center; }
+        /* Larguras próprias (anula as larguras por posição do style.css, feitas para o layout antigo) */
+        .table-destaque.tabela-leads th,
+        .table-destaque.tabela-leads td { width: auto; max-width: none; }
+        .table-destaque.tabela-leads .col-cnpj   { min-width: 150px; white-space: nowrap; }
+        .table-destaque.tabela-leads .col-fone   { min-width: 130px; white-space: nowrap; }
+        .table-destaque.tabela-leads .col-linhas { width: 90px; white-space: nowrap; }
+        .table-destaque.tabela-leads .col-tel    { min-width: 170px; }
+        .table-destaque.tabela-leads .col-obs    { min-width: 200px; }
+        .table-destaque.tabela-leads .col-status { min-width: 190px; }
+        .table-destaque.tabela-leads .col-acao   { width: 100px; }
 
         .form-inline { display:flex; gap:4px; align-items:center; flex-wrap: wrap; }
         .status-select { min-width: 170px; max-width: 220px; }
-        .sfa-select {
-            width: auto; min-width: 0; max-width: 68px; padding: 2px 4px;
-        }
         .input-telefone { min-width:150px; padding:2px 5px; }
         .input-observacao { min-width:180px; max-width:300px; padding:2px 5px; }
         .atualizar-btn { padding:2px 10px; border-radius:5px; background:#6f5dff; color:#fff; border:none; cursor:pointer; }
@@ -151,24 +141,21 @@ while ($row = $res->fetchArray(SQLITE3_ASSOC)) $leads[] = $row;
     <?php endif; ?>
 
     <div class="tabela-responsive">
-        <table class="table-destaque">
+        <table class="table-destaque tabela-leads">
             <tr>
-                <th class="col-empresa">Empresa/Cliente</th>
-                <th class="col-cpf">CPF/CNPJ</th>
-                <th class="col-email">Email</th>
-                <th class="col-estado">Estado</th>
+                <th class="col-cnpj">CNPJ</th>
+                <th class="col-fone">Telefone</th>
+                <th class="col-linhas">Linhas</th>
                 <th class="col-tel">Telefone da Ligação</th>
                 <th class="col-obs">Observação</th>
-                <th class="col-sfa">SFA</th>
                 <th class="col-status">Status</th>
                 <th class="col-acao">Ação</th>
             </tr>
             <?php foreach ($leads as $lead): ?>
             <tr id="lead<?= (int)$lead['id'] ?>"<?= ($lead['id'] == $ultimo_atualizado ? ' style="outline:2px solid #6f5dff;"' : '') ?>>
-                <td class="col-empresa"><?= htmlspecialchars($lead['empresa']) ?></td>
-                <td class="col-cpf"><?= htmlspecialchars($lead['cpf_cnpj']) ?></td>
-                <td class="col-email"><?= htmlspecialchars($lead['email']) ?></td>
-                <td class="col-estado"><?= htmlspecialchars($lead['estado']) ?></td>
+                <td class="col-cnpj"><?= htmlspecialchars($lead['cpf_cnpj'] ?? '') ?></td>
+                <td class="col-fone"><?= htmlspecialchars(($lead['tel_comercial'] ?? '') !== '' ? $lead['tel_comercial'] : ($lead['tel_celular'] ?? '')) ?></td>
+                <td class="col-linhas"><?= htmlspecialchars($lead['qtd_linhas'] ?? '') ?></td>
 
                 <!-- Form começa aqui e vai até o botão -->
                 <td class="col-tel">
@@ -198,14 +185,6 @@ while ($row = $res->fetchArray(SQLITE3_ASSOC)) $leads[] = $row;
                             required
                         />
                 </td>
-                <td class="col-sfa">
-                        <select name="sfa" class="sfa-select" title="SFA" required>
-                            <!-- placeholder vazio e desabilitado para forçar escolha -->
-                            <option value="" disabled <?= (!in_array(($lead['sfa'] ?? ''), ['Sim','Não'], true) ? 'selected' : '') ?>>—</option>
-                            <option value="Sim" <?= (isset($lead['sfa']) && $lead['sfa']==='Sim') ? 'selected' : '' ?>>Sim</option>
-                            <option value="Não" <?= (isset($lead['sfa']) && $lead['sfa']==='Não') ? 'selected' : '' ?>>Não</option>
-                        </select>
-                </td>
                 <td class="col-status">
                         <select name="status" class="status-select" required>
                             <option value="" disabled <?= (empty($lead['status']) || $lead['status']==='Novo') ? 'selected' : '' ?>>Selecione</option>
@@ -222,7 +201,7 @@ while ($row = $res->fetchArray(SQLITE3_ASSOC)) $leads[] = $row;
             <?php endforeach; ?>
             <?php if (empty($leads)): ?>
             <tr>
-                <td colspan="9" style="text-align:center;color:#bbb;">Nenhum lead atribuído.</td>
+                <td colspan="7" style="text-align:center;color:#bbb;">Nenhum lead atribuído.</td>
             </tr>
             <?php endif; ?>
         </table>

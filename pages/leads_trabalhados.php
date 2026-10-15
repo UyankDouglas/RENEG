@@ -30,7 +30,7 @@ $status_options = listar_status($db);
 
 // ---- failsafe: garante colunas necessárias ----
 (function($db){
-    $need = ['sfa'];
+    $need = ['qtd_linhas'];
     $have = [];
     $res = $db->query("PRAGMA table_info(leads)");
     while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
@@ -51,13 +51,12 @@ $por_pagina = 50;
 $inicio_mes = date('Y-m-01 00:00:00');
 $fim_mes    = date('Y-m-t 23:59:59');
 
-// ---- Salvar em lote: status, observação, SFA e telefone ----
+// ---- Salvar em lote: status, observação e telefone ----
 $msg = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['lead_id']) && is_array($_POST['lead_id'])) {
     $ids   = $_POST['lead_id'];
     $sts   = $_POST['status'] ?? [];
     $obs   = $_POST['observacao'] ?? [];
-    $sfas  = $_POST['sfa'] ?? [];
     $tels  = $_POST['telefone_ligacao'] ?? [];
 
     $agora = date('Y-m-d H:i:s');
@@ -65,7 +64,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['lead_id']) && is_arra
         UPDATE leads
            SET status = :st,
                observacao = :obs,
-               sfa = :sfa,
                telefone_ligacao = :tel,
                data_retorno = :dt
          WHERE id = :id AND consultor_id = :cid
@@ -75,16 +73,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['lead_id']) && is_arra
         $lead_id = (int)$ids[$i];
         $status  = trim($sts[$i] ?? '');
         $observ  = trim($obs[$i] ?? '');
-        $sfa     = trim($sfas[$i] ?? '');
         $tel     = trim($tels[$i] ?? '');
-
-        // SFA normalizado (aceita vazio, Sim, Não)
-        if ($sfa === '') { $sfa = null; }
-        elseif (!in_array($sfa, ['Sim','Não'], true)) { $sfa = null; }
 
         $stmt->bindValue(':st',  $status, SQLITE3_TEXT);
         $stmt->bindValue(':obs', $observ, SQLITE3_TEXT);
-        $stmt->bindValue(':sfa', $sfa, SQLITE3_TEXT);
         $stmt->bindValue(':tel', $tel, SQLITE3_TEXT);
         $stmt->bindValue(':dt',  $agora, SQLITE3_TEXT);
         $stmt->bindValue(':id',  $lead_id, SQLITE3_INTEGER);
@@ -101,10 +93,9 @@ $where = "consultor_id = $consultor_id AND status != 'Novo' AND status != '' AND
 if ($busca !== '') {
     $b = SQLite3::escapeString($busca);
     $where .= " AND (
-        empresa LIKE '%$b%' OR 
-        cpf_cnpj LIKE '%$b%' OR 
-        email LIKE '%$b%' OR
-        estado LIKE '%$b%' OR
+        cpf_cnpj LIKE '%$b%' OR
+        tel_comercial LIKE '%$b%' OR
+        tel_celular LIKE '%$b%' OR
         telefone_ligacao LIKE '%$b%'
     )";
 }
@@ -133,9 +124,16 @@ while ($row = $res->fetchArray(SQLITE3_ASSOC)) $leads[] = $row;
     <link rel="stylesheet" href="../css/style.css">
     <style>
         .status-select { width: 120px; }
-        .sfa-select    { width: 76px; }
         .tel-input     { width: 140px; }
         .obs-input     { width: 180px; }
+
+        /* Larguras próprias (anula as larguras por posição do style.css, feitas para o layout antigo) */
+        .table-destaque.tabela-leads th,
+        .table-destaque.tabela-leads td { width: auto; max-width: none; }
+        .table-destaque.tabela-leads .col-cnpj,
+        .table-destaque.tabela-leads .col-fone,
+        .table-destaque.tabela-leads .col-linhas,
+        .table-destaque.tabela-leads .col-data { white-space: nowrap; }
 
         .paginacao { margin:22px 0 0 0; text-align:center; }
         .paginacao a, .paginacao span {
@@ -153,7 +151,6 @@ while ($row = $res->fetchArray(SQLITE3_ASSOC)) $leads[] = $row;
         @media (max-width:600px) {
             .tabela-responsive { padding: 0; }
             .status-select { width: 96px; }
-            .sfa-select    { width: 66px; }
             .tel-input     { width: 120px; }
             .obs-input     { width: 120px; }
         }
@@ -167,7 +164,7 @@ while ($row = $res->fetchArray(SQLITE3_ASSOC)) $leads[] = $row;
     <?php endif; ?>
 
     <form method="GET" class="filtro-busca">
-        <input type="text" name="busca" value="<?= htmlspecialchars($busca) ?>" placeholder="Buscar: empresa, CPF/CNPJ, email, estado, telefone">
+        <input type="text" name="busca" value="<?= htmlspecialchars($busca) ?>" placeholder="Buscar: CNPJ ou telefone">
         <select name="status_filtro">
             <option value="">Todos os Status</option>
             <?php foreach ($status_options as $opt): ?>
@@ -179,24 +176,21 @@ while ($row = $res->fetchArray(SQLITE3_ASSOC)) $leads[] = $row;
 
     <form method="POST">
         <div class="tabela-responsive">
-            <table class="table-destaque">
+            <table class="table-destaque tabela-leads">
                 <tr>
-                    <th>Empresa/Cliente</th>
-                    <th>CPF/CNPJ</th>
-                    <th>Email</th>
-                    <th>Estado</th>
-                    <th>Telefone da Ligação</th> <!-- NOVO -->
-                    <th>SFA</th>                   <!-- NOVO -->
+                    <th class="col-cnpj">CNPJ</th>
+                    <th class="col-fone">Telefone</th>
+                    <th class="col-linhas">Linhas</th>
+                    <th>Telefone da Ligação</th>
                     <th>Status</th>
-                    <th>Data Tabulação</th>
+                    <th class="col-data">Data Tabulação</th>
                     <th>Observação</th>
                 </tr>
                 <?php foreach ($leads as $idx => $lead): ?>
                 <tr>
-                    <td><?= htmlspecialchars($lead['empresa']) ?></td>
-                    <td><?= htmlspecialchars($lead['cpf_cnpj']) ?></td>
-                    <td><?= htmlspecialchars($lead['email']) ?></td>
-                    <td><?= htmlspecialchars($lead['estado']) ?></td>
+                    <td class="col-cnpj"><?= htmlspecialchars($lead['cpf_cnpj'] ?? '') ?></td>
+                    <td class="col-fone"><?= htmlspecialchars(($lead['tel_comercial'] ?? '') !== '' ? $lead['tel_comercial'] : ($lead['tel_celular'] ?? '')) ?></td>
+                    <td class="col-linhas"><?= htmlspecialchars($lead['qtd_linhas'] ?? '') ?></td>
 
                     <td>
                         <input type="hidden" name="lead_id[]" value="<?= (int)$lead['id'] ?>">
@@ -213,14 +207,6 @@ while ($row = $res->fetchArray(SQLITE3_ASSOC)) $leads[] = $row;
                     </td>
 
                     <td>
-                        <select name="sfa[]" class="sfa-select">
-                            <option value="" <?= (!in_array(($lead['sfa'] ?? ''), ['Sim','Não'], true) ? 'selected' : '') ?>>—</option>
-                            <option value="Sim" <?= (($lead['sfa'] ?? '')==='Sim' ? 'selected' : '') ?>>Sim</option>
-                            <option value="Não" <?= (($lead['sfa'] ?? '')==='Não' ? 'selected' : '') ?>>Não</option>
-                        </select>
-                    </td>
-
-                    <td>
                         <select name="status[]" class="status-select" required
                             style="<?php
                                 if ($lead['status'] === 'VENDA')       echo 'background:#24ad49;color:#fff;font-weight:bold;';
@@ -233,7 +219,7 @@ while ($row = $res->fetchArray(SQLITE3_ASSOC)) $leads[] = $row;
                         </select>
                     </td>
 
-                    <td><?= htmlspecialchars(date('d/m/Y H:i', strtotime($lead['data_retorno']))) ?></td>
+                    <td class="col-data"><?= htmlspecialchars(date('d/m/Y H:i', strtotime($lead['data_retorno']))) ?></td>
 
                     <td>
                         <input type="text" name="observacao[]" value="<?= htmlspecialchars($lead['observacao'] ?? '') ?>" class="obs-input">
@@ -242,7 +228,7 @@ while ($row = $res->fetchArray(SQLITE3_ASSOC)) $leads[] = $row;
                 <?php endforeach; ?>
 
                 <?php if (empty($leads)): ?>
-                    <tr><td colspan="9" style="text-align:center; color:#bbb;">Nenhum lead trabalhado ainda este mês.</td></tr>
+                    <tr><td colspan="7" style="text-align:center; color:#bbb;">Nenhum lead trabalhado ainda este mês.</td></tr>
                 <?php endif; ?>
             </table>
         </div>
